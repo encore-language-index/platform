@@ -1,0 +1,2 @@
+# This fixture is hashed as bytes on every checkout platform.
+tests/sha256_fixture.txt text eol=lf
