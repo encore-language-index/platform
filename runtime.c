@@ -72,14 +72,19 @@ extern char **environ;
 extern char **environ;
 #endif
 #endif
-typedef struct { _Atomic size_t ref_count; size_t len; char data[]; } encore_str_object;
-typedef struct { encore_str_object *object; } encore_str;
-extern encore_str encore_empty_str(void);
-extern encore_str encore_from_owned_buffer(char *buffer, size_t len);
-extern encore_str encore_from_cstr_copy(const char *value);
-extern char *encore_str_data(encore_str value);
-extern size_t encore_str_size(encore_str value);
-extern char *encore_to_cstr(encore_str value);
+/* The include path is supplied by Encore. The relative fallback also
+ * supports the .14 bootstrap and SDK sibling-directory development. */
+#if defined(__has_include)
+# if __has_include(<runtime_abi.h>)
+#  include <runtime_abi.h>
+# elif __has_include("runtime_abi.h")
+#  include "runtime_abi.h"
+# else
+#  include "../core/runtime_abi.h"
+# endif
+#else
+# include "../core/runtime_abi.h"
+#endif
 #include "utf8_paths.h"
 #include "checked_io.h"
 #include "plugin_sdk.h"
@@ -102,6 +107,13 @@ bool encore_terminal_is_tty(int32_t fd) {
 #else
     return fd >= 0 && isatty(fd) != 0;
 #endif
+}
+
+bool encore_terminal_color_enabled(int32_t fd) {
+    const char *no_color = getenv("NO_COLOR");
+    const char *term = getenv("TERM");
+    return encore_terminal_is_tty(fd) && (no_color == NULL || no_color[0] == '\0')
+        && (term == NULL || strcmp(term, "dumb") != 0);
 }
 
 typedef struct {
