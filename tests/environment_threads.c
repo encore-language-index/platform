@@ -4,13 +4,10 @@
 #include <stdint.h>
 #include <stdatomic.h>
 #include <string.h>
+#include "../../core/runtime_abi.h"
 
-typedef struct { void *object; } encore_str;
 size_t encore_os_argc(void);
 encore_str encore_os_argv(size_t index);
-encore_str encore_from_cstr_copy(const char *value);
-char *encore_str_data(encore_str value);
-void encore_str_drop(encore_str value);
 int32_t encore_net_tcp_connect(encore_str address);
 encore_str encore_net_last_error(void);
 size_t encore_thread_spawn(void (*entry)(void *), void *payload, void (*cleanup)(void *));
