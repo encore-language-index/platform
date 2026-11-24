@@ -14,6 +14,7 @@
 
 typedef struct encore_async_event {
   size_t id, owners, operations;
+  size_t parent;
   bool retired, cleanup_done, signaled, closed;
   struct encore_async_event *next;
 #ifdef _WIN32
@@ -93,7 +94,7 @@ static void encore_async_event_leave(encore_async_event *event) {
   if (destroy)
     encore_async_event_free(event);
 }
-size_t encore_async_waker_new(void) {
+size_t encore_async_waker_child(size_t parent) {
   encore_async_event *event = calloc(1, sizeof(*event));
   if (event == NULL)
     return 0;
@@ -119,11 +120,13 @@ size_t encore_async_waker_new(void) {
   }
   event->id = encore_async_next_event++;
   event->owners = 1;
+  event->parent = parent < event->id ? parent : 0;
   event->next = encore_async_events;
   encore_async_events = event;
   encore_async_registry_unlock();
   return event->id;
 }
+size_t encore_async_waker_new(void) { return encore_async_waker_child(0); }
 bool encore_async_waker_retain(size_t token) {
   if (token == 0)
     return true; /* Explicit noop context. */
@@ -168,16 +171,20 @@ void encore_async_waker_release(size_t token) {
     encore_async_event_free(event);
 }
 void encore_async_waker_wake(size_t token) {
-  encore_async_event *event = encore_async_event_enter(token);
-  if (event == NULL)
-    return;
-  encore_async_event_lock(event);
-  if (!event->closed) {
-    event->signaled = true;
-    encore_async_event_notify(event);
+  while (token != 0) {
+    encore_async_event *event = encore_async_event_enter(token);
+    if (event == NULL)
+      return;
+    encore_async_event_lock(event);
+    token = 0;
+    if (!event->closed) {
+      event->signaled = true;
+      encore_async_event_notify(event);
+      token = event->parent;
+    }
+    encore_async_event_unlock(event);
+    encore_async_event_leave(event);
   }
-  encore_async_event_unlock(event);
-  encore_async_event_leave(event);
 }
 void encore_async_waker_wait(size_t token) {
   encore_async_event *event = encore_async_event_enter(token);
